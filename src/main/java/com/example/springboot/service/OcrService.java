@@ -30,9 +30,9 @@ import static org.opencv.imgproc.Imgproc.RETR_TREE;
 
 @Service
 public class OcrService {
-    public static final String APP_ID = "18153854";
-    public static final String API_KEY = "YVD6g3Z2e6OjLv0AKLuzzh4j";
-    public static final String SECRET_KEY = "eCv7GFrBQxNqpUrlHVjcvCLpPV1Yc5hX";
+    public static final String APP_ID = "xxxxx";
+    public static final String API_KEY = "xxxxx";
+    public static final String SECRET_KEY = "xxxxxxx";
     private JSONArray data;
 
     //获取全图片文字位置
