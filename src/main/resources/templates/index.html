@@ -1,0 +1,405 @@
+<!DOCTYPE html>
+<html lang="en">
+<link rel="stylesheet" href="../../script/loadingsrc/loading.css">
+<script src="../../vue.js" type="text/javascript" charset="UTF-8"></script>
+<script src="../../script/toast.js" type="text/javascript" charset="UTF-8"></script>
+<script src="../../script/tree.js" type="text/javascript" charset="UTF-8"></script>
+<script src="../../script/el-button.js" type="text/javascript" charset="UTF-8"></script>
+<script src="../../script/list-button.js" type="text/javascript" charset="UTF-8"></script>
+<script src="../../script/type-button.js" type="text/javascript" charset="UTF-8"></script>
+<script src="../../script/detail.js" type="text/javascript" charset="UTF-8"></script>
+<script src="../../script/loadingsrc/jquery-1.11.2.js"></script>
+<script src="../../script/loadingsrc/loading.js"></script>
+<script src="https://cdn.staticfile.org/axios/0.18.0/axios.min.js"></script>
+<head>
+    <meta  charset="UTF-8">
+    <title>Title</title>
+</head>
+<body>
+<div id="app">
+<testing img-src="../../image/default.JPG"></testing>
+</div>
+<script type="text/javascript">
+    // var template='<div>sssss</div>';
+    let toast=window.toasting;
+    let tree=window.Tree;
+    // let heading=window.Head;
+    Vue.component('testing',{
+        template: ` <div id="customPositionDiv" style='display: flex' >
+                <tree v-bind:folder='NodeArray' :selectedNode="selectedNode" v-on:selectNode='redrawTree' v-on:deleteMenuNode='deleteNode'></tree>
+                    <div   style="width: 860px; height:740px;   margin-left:30px ; display:-webkit-box; -webkit-box-align:center; -webkit-box-pack:center; ">
+                        <div @mousedown="mousedown" @mousemove="mousemove" @mouseup="mouseup" @Mouseleave="Mouseleave" :style="imgstyle">
+                            <img  :src="imgPath"  :style="imgstyle" >
+                            <canvas  ref="table"  :width="canvasWidth"  :height="canvasHeight"  :style="canvasstyle"></canvas>
+                        </div>
+                  </div>
+                  <div style="display: flex;flex-direction: column;justify-content: center;align-items: center">
+                       <type-button @changeStyle="changeStyle"></type-button>
+                       <detail :node="selectedNode" ></detail>
+                  </div>
+            <list-button v-on:uploadImg='uploadSuccess' v-on:scanImg='scanSuccess' v-on:generateFail="generateFail" :head="head"></list-button>
+                <toast v-bind:the-toast='!legal' :msg='msg' ></toast>
+                    <div style="width: 1450px;z-index: inherit;text-align: right ;margin:10px 0 0 0">
+                        <span slot="footer" class="dialog-footer" >
+                        </span>
+                    </div>
+                </div>`,
+        props:['imgSrc'],
+        components:{toast,tree},
+        data(){
+            return{
+                imgPath:this.imgSrc,
+                x:'',  //画画开始的X坐标
+                y:'',  //画画开始的Y坐标
+                endX:'',    //画画结束的X坐标
+                endY:'',    //画画结束的Y坐标
+                isMouseDownInCanvas:'', //鼠标是否按下
+                customcxt: '',      // cxt
+                customRwidth:'',    //原图与展示图片的宽度比
+                customRheight:'',   //原图与展示图片的高度比
+                imgstyle:'',        //根据图片大小自适应样式
+                canvasstyle:'',     //根据图片大小canvas自适应样式 居中显示
+                canvasWidth:'',     //根据图片大小自适应canvas宽
+                canvasHeight:'',    //根据图片大小自适应canvas高
+                DivWidth:860,      //最大宽度
+                DivHeight:740,      //最大高度
+                maxDrawWidth:110,         //画图时最大宽度
+                maxDrawHeight:0,         //画图最大高度
+                head:{},
+                legal:true,           //新画的形状是否合法
+                NodeArray:[],          //用于显示左边的树的辅助数组
+                selectedNode:{},       //被选择的节点
+                style:['#00ff00','#00E5EE','#9400D3','#CD8500'],
+                styleNum:0,
+                styleName:['边框','文字','图片','实体'],
+                msg:"不能重合",
+                hadMoved:false//鼠标是否移动了
+            }
+        },
+        watch: {
+            'imgSrc':function (newVal,oldVal) {
+                this.imgPath=newVal;
+                this.show();
+            }
+        },
+        mounted() {
+            this.show();
+        },
+        methods: {
+            //取消时返回组件调用处所需的数据
+            customClose(){
+                this.customcxt.clearRect(0, 0, this.DivWidth, this.DivHeight);
+                this.$emit('custom',{'type':1,'data':''});
+            },
+            //确定时返回组件调用处所需的数据
+            customQuery(){
+                this.customcxt.clearRect(0, 0, this.DivWidth, this.DivHeight);
+                //根据绘制进行图片裁剪
+
+                //获取矩形框Left，Width'
+                let cLeft = 0;
+                let cWidth = 0;
+                if(this.x>this.endX){
+                    cLeft = this.endX;
+                    cWidth = this.x -this.endX;
+                }else{
+                    cLeft = this.x;
+                    cWidth =  this.endX -this.x;
+                }
+
+                //获取矩形框Top，Height
+                let cTop = 0;
+                let cHeight = 0;
+                if(this.y>this.endY){
+                    cTop = this.endY;
+                    cHeight = this.y -this.endY;
+                }else{
+                    cTop = this.y;
+                    cHeight =  this.endY -this.y;
+                }
+
+                var oMark =  [];
+                oMark['offsetLeft'] = parseInt(cLeft/this.customRwidth);
+                oMark['offsetTop'] = parseInt(cTop/this.customRheight);
+                oMark['offsetWidth'] = parseInt(cWidth/this.customRwidth);
+                oMark['offsetHeight'] = parseInt(cHeight/this.customRheight);
+
+                this.$emit('custom',{'type':2,'data':oMark});
+            },
+
+            //dialog展示自定义矩形框画板，计算img与canvas标签自适应图片的大小
+            show () {
+                Vue.nextTick(_ => {
+                    this.NodeArray=[];
+                    let rect=this.Rect(0,0,this.DivWidth,this.DivHeight);
+                    this.head=this.Node(rect);
+                    this.selectedNode=this.head;
+                    // this.head.children=[];
+                    let customCanvas =this.$refs.table;// canvas显示层
+                    this.customcxt = customCanvas.getContext("2d");
+                    let img = new Image();
+                    img.src = this.imgPath;
+                    let that = this;
+                    img.onload = function () {
+                        that.customcxt.clearRect(0, 0, that.DivWidth, that.DivHeight);
+                        let canvasleft =0;
+                        let canvastop =0;
+                        let WrH = img.width/img.height;             //图片宽高比
+                        let RWrH = that.DivWidth/that.DivHeight;    //放置图片DIV的宽高比
+                        let aa =0;
+                        // 根据宽高比大小判断确定自适应的宽和高
+                        if(RWrH> WrH){
+                            aa = that.DivHeight/img.height;
+                            that.canvasHeight = that.DivHeight ;
+                            that.canvasWidth = img.width*aa;
+                            canvasleft = (that.DivWidth-that.canvasWidth)/2
+                        }else{
+                            aa = that.DivWidth/img.width;
+                            that.canvasHeight = img.height *aa;
+                            that.canvasWidth = that.DivWidth;
+                            canvastop= (that.DivHeight-that.canvasHeight)/2
+                        }
+                        that.imgstyle= ' position: relative;  width:'+that.canvasWidth+' px; height:'+that.canvasHeight+'px' ; //img浮动定位居中显示
+                        that.customRwidth = that.canvasWidth / img.width; //原图与展示图片的宽高比
+                        that.customRheight =  that.canvasHeight / img.height;
+                        that.canvasstyle='position: absolute;left: '+canvasleft+'; top: '+canvastop+';';//canvas浮动定位
+                        that.customcxt.drawImage(img,30,30);
+                    };
+                })
+
+            },
+            //鼠标按下时执行
+            mousedown(e){
+                this.legal=true;
+                this.hadMoved=false;
+                this.isMouseDownInCanvas =  true;
+                // 鼠标按下时开始位置与结束位置相同 防止鼠标在画完矩形后 点击图画形成第二个图形
+                this.endX = e.offsetX;
+                this.endY = e.offsetY;
+                this.x = e.offsetX;
+                this.y = e.offsetY;
+                //this.mousemove(e)
+
+            },
+            //鼠标移动式时执行
+            mousemove(e){
+                if (this.isMouseDownInCanvas){ // 当鼠标有按下操作时执行
+                    this.hadMoved=true;
+                    this.endX = e.offsetX;
+                    this.endY = e.offsetY;
+                    let wwidth = this.endX  - this.x;
+                    let wheigth = this.endY - this.y;
+
+                    // 清除指定区域的所有像素
+                    this.customcxt.clearRect(0, 0, this.DivWidth, this.DivHeight);
+                    this.customcxt.strokeStyle=this.style[this.styleNum]; //矩形框颜色
+                    this.customcxt.lineWidth="2";  //矩形框宽度
+                    this.customcxt.strokeRect(this.x,this.y,wwidth,wheigth);  //绘制矩形
+                    this.drawTree(this.head);
+                }
+            },
+            //鼠标松开时执行
+            mouseup(e){
+                this.isMouseDownInCanvas =  false;
+                if(this.hadMoved){
+                    this.InsertTree(this.head);//鼠标松开插入最新画的树
+                    this.customcxt.clearRect(0, 0, this.DivWidth, this.DivHeight);
+                    this.drawTree(this.head);
+                    //清除要显示的数组然后重新更新
+                    this.NodeArray = [];
+                    this.addToshow(this.head, 0);
+                }else {
+                    this.SelectedInCanvas(this.head);
+                    this.customcxt.clearRect(0, 0, this.DivWidth, this.DivHeight);
+                    this.redrawTree(this.selectedNode);
+                }
+            },
+
+            Mouseleave(e){
+                this.isMouseDownInCanvas =  false;
+            },
+
+            Rect(x,y,width,height){
+                let  rect={};
+                rect.x=x;
+                rect.y=y;
+                rect.width=width;
+                rect.height=height;
+                return rect;
+            },
+            Node(rect){
+                let node={};
+                node.children=[];
+                node.val={};
+                node.val.rect=rect;
+                node.val.kind=0;
+                node.val.point2fs=[];
+                node.val.radius=0;
+                node.val.epsilon=3;
+                node.val.content='';
+                node.selected=false;
+                node.val.width=2;
+                return node;
+            },
+            InsertTree(node) {
+                if (node == null) return;
+                let that=this;
+                for (let i = 0; i < node.children.length; i++) {
+                    if (this.judgeContain(node.children[i].val.rect)) {//如果包含的则递归
+                        this.InsertTree(node.children[i]);
+                        return;
+                    }else {
+                        if(this.judgeContact(node.children[i].val.rect)){//存在与任何一个相交视为不合法
+                            this.msg="不能重合";
+                            this.legal=false;
+                            return;
+                        }
+                    }
+                }
+                let childnode=this.Node(that.Rect(Math.min(this.x,this.endX)/that.customRwidth,
+                    Math.min(this.y,this.endY)/that.customRheight, Math.abs(this.x-this.endX)/that.customRwidth,
+                    Math.abs(this.y-this.endY)/that.customRheight));
+                childnode.val.kind=this.styleNum;
+                this.selectedNode=childnode;
+                node.children.push(childnode);
+                // node.children.children = [];
+            },
+            judgeContact(value){
+                let minx=Math.max(Math.min(this.x,this.endX),value.x*this.customRwidth);
+                let miny=Math.max(Math.min(this.y,this.endY),value.y*this.customRheight);
+                let maxx=Math.min(Math.max(this.x,this.endX),(value.x+value.width)*this.customRwidth);
+                let maxy=Math.min(Math.max(this.y,this.endY),(value.y+value.height)*this.customRheight);
+                if(minx<=maxx&&miny<=maxy){
+                    return true;//相交则不合法
+                }
+                return false;
+            },
+            judgeContain(value){
+                if(Math.min(this.x,this.endX)<=value.x*this.customRwidth)
+                    return false;
+                if(Math.min(this.y,this.endY)<=value.y*this.customRheight)
+                    return false;
+                if(Math.max(this.x,this.endX)>=(value.x+value.width)*this.customRwidth)
+                    return false;
+                if(Math.max(this.y,this.endY)>=(value.y+value.height)*this.customRheight)
+                    return false;
+                return true;
+            },
+            drawTree(node){
+                for (let i = 0; i < node.children.length; i++) {
+                    let childNode=node.children[i].val.rect;
+                    //画树实际与显示的成比例
+                    this.customcxt.beginPath();
+                    this.customcxt.strokeStyle=this.style[node.children[i].val.kind]; //矩形框颜色
+                    this.customcxt.strokeRect(childNode.x*this.customRwidth,childNode.y*this.customRheight,
+                        childNode.width*this.customRwidth,childNode.height*this.customRheight);
+                    this.drawTree(node.children[i]);
+                    this.customcxt.closePath();
+                }
+            },
+            //左边列表点击后实现树的重画
+            redrawTree(node){
+                this.customcxt.strokeStyle="#00ff00"; //矩形框颜色
+                this.drawTree(this.head);
+                this.customcxt.beginPath();
+                this.customcxt.strokeStyle="#FF0000"; //矩形框颜色
+                this.selectedNode=node;
+                this.customcxt.strokeRect(node.val.rect.x*this.customRwidth,node.val.rect.y*this.customRheight,
+                    node.val.rect.width*this.customRwidth,node.val.rect.height*this.customRheight);
+                this.customcxt.closePath();
+            },
+            // 把树转化成数组方便左边列表显示
+            addToshow(node,step){
+                let that=this;
+                for (let i = 0; i < node.children.length; i++) {
+                    let childNode=node.children[i];
+                    let position="";
+                    for (let i=0;i<step;i++){
+                        position+="—";
+                    }
+                    this.NodeArray.push({
+                        step:step,
+                        val:that.styleName[childNode.val.kind],
+                        position:position,
+                        node:childNode
+                        });
+                    this.addToshow(node.children[i],step+1);
+                }
+            },
+            //根据选择要删除的节点删除
+            deleteNode(node){
+                this.deleteTreeNode(this.head,node);
+                // 清除指定区域的所有像素
+                this.customcxt.clearRect(0, 0, this.DivWidth, this.DivHeight);
+                this.customcxt.strokeStyle="#00ff00"; //矩形框颜色
+                this.customcxt.lineWidth="2";  //矩形框宽度
+                this.drawTree(this.head);
+                this.NodeArray=[];
+                this.addToshow(this.head,0);
+                console.log("")
+            },
+            deleteTreeNode(head,node){
+                for (let i = 0; i < head.children.length; i++) {
+                    let childNode=head.children[i];
+                    if(childNode===node){
+                        head.children=head.children.concat(childNode.children);
+                        head.children.splice(i,1);
+                        return;
+                    }
+                    this.deleteTreeNode(childNode,node);
+                }
+            },
+            uploadSuccess(path){
+                console.log("upload");
+                this.imgPath=path;
+                this.show();
+            },
+            //获取扫描结果成功
+            scanSuccess(node){
+                this.head=node;
+                this.customcxt.clearRect(0, 0, this.DivWidth, this.DivHeight);
+                this.customcxt.strokeStyle="#00ff00"; //矩形框颜色
+                this.customcxt.lineWidth="2";  //矩形框宽度
+                this.drawTree(this.head);
+                this.NodeArray=[];
+                this.addToshow(this.head,0);
+            },
+            generateFail(msg){
+                this.legal=false;
+                this.msg=msg;
+            },
+            changeStyle(color){
+                this.styleNum=color;
+            },
+            //获取选择点击哪个节点（鼠标点在画布上的）
+            SelectedInCanvas(head){
+                let status=true;//判断点击的点有无该层任一的节点当中
+                for (let i = 0; i < head.children.length; i++) {
+                    let childNodeRect=head.children[i].val.rect;
+                    if(this.x>childNodeRect.x*this.customRwidth&&
+                        this.x<(childNodeRect.x+childNodeRect.width)*this.customRwidth&&
+                        this.y>childNodeRect.y*this.customRheight&&
+                        this.y<(childNodeRect.y+childNodeRect.height)*this.customRheight){
+                        status=false;
+                        if(head.children[i].children.length===0){
+                            this.selectedNode=head.children[i];
+                        }else {
+                            this.SelectedInCanvas(head.children[i]);
+                        }
+                    }
+                }
+                if(status){this.selectedNode=head};
+            }
+        },
+    });
+    var vm=new Vue({
+        el:"#app",
+        components:{
+            test:{
+                template:"<h2>1111111</h2>"
+            }
+        }
+    })
+</script>
+</body>
+</html>
