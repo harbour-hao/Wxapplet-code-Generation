@@ -28,6 +28,7 @@ public class CvController {
 
     @Autowired
     GenerateService generateService;
+    
     @RequestMapping(path = {"/scan"}, method = {RequestMethod.POST})
     @ResponseBody
     public String scan(@RequestParam("filename") String filename){
