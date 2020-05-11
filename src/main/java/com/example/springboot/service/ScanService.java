@@ -61,6 +61,7 @@ public class ScanService implements InitializingBean {
         Imgproc.findContours(img, COMP_contours, COMP_hierarchy,RETR_CCOMP, CHAIN_APPROX_SIMPLE);
         Imgproc.findContours(img, TREE_contours, TREE_hierarchy,RETR_TREE, CHAIN_APPROX_SIMPLE);
         TreeNode head=CreateTree(TREE_contours,TREE_hierarchy,COMP_contours,COMP_hierarchy, src);
+        if(head==null)return null;
         fontService.FontOptimize(head,src,path);//文字处理
         borderService.findBorder(head,src);//边框处理
         return head;
@@ -69,6 +70,7 @@ public class ScanService implements InitializingBean {
     //以Tree为主,Comp为辅
     private TreeNode CreateTree(List<MatOfPoint> Tree_contours, Mat Tree_hierarchy, List<MatOfPoint> Comp_contours, Mat Comp_hierarchy, Mat src ){
         int []TCindex=GetIndex(Tree_contours,Comp_contours).get(0);//记录Tree_contours对应哪一个Comp_contours
+        if(TCindex.length>100)return null;
         int []CTindex=GetIndex(Tree_contours,Comp_contours).get(1);//记录Tree_contours对应哪一个Comp_contours
         TreeNode head=null;
         for (int i=0;i<Tree_contours.size();i++){
