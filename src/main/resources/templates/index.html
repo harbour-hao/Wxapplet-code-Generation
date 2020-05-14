@@ -73,7 +73,6 @@
                 styleNum:0,
                 styleName:['边框','文字','图片','实体'],
                 msg:"不能重合",
-                hadMoved:false//鼠标是否移动了
             }
         },
         watch: {
@@ -171,7 +170,6 @@
             //鼠标按下时执行
             mousedown(e){
                 this.legal=true;
-                this.hadMoved=false;
                 this.isMouseDownInCanvas =  true;
                 // 鼠标按下时开始位置与结束位置相同 防止鼠标在画完矩形后 点击图画形成第二个图形
                 this.endX = e.offsetX;
@@ -184,7 +182,6 @@
             //鼠标移动式时执行
             mousemove(e){
                 if (this.isMouseDownInCanvas){ // 当鼠标有按下操作时执行
-                    this.hadMoved=true;
                     this.endX = e.offsetX;
                     this.endY = e.offsetY;
                     let wwidth = this.endX  - this.x;
@@ -201,7 +198,8 @@
             //鼠标松开时执行
             mouseup(e){
                 this.isMouseDownInCanvas =  false;
-                if(this.hadMoved){
+                //如果鼠标动了，就是新增画的框
+                if(this.x!==this.endX&&this.y!==this.endY){
                     this.InsertTree(this.head);//鼠标松开插入最新画的树
                     this.customcxt.clearRect(0, 0, this.DivWidth, this.DivHeight);
                     this.drawTree(this.head);
