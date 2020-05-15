@@ -30,6 +30,7 @@ var Tree={
         },
         'selectedNode':function (newVal, oldVal) {
             this.selectedNodes=newVal;
+            this.selectedStatus=false;//节点改变了状态也需要变
         }
     },
     methods:{
@@ -45,10 +46,10 @@ var Tree={
                 this.folders.splice(this.selectedIndex, 1);
                 console.log("deleteMenu" + this.selectedIndex);
             }else {
-                if(JSON.stringify(this.selectedNodes) === "{}")return
+                if(JSON.stringify(this.selectedNodes) === "{}")return;
                 this.$emit('deleteMenuNode', this.selectedNodes);
-                this.selectedStatus=false;
             }
+            this.selectedStatus=false;
         }
     }
 };
