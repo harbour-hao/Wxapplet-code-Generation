@@ -105,6 +105,10 @@
                         console.log("scan request success");
                         load.stop();
                         that.$emit("scanImg",res.data.msg);
+                    }else{
+                        load.stop();
+                        that.$emit("generateFail","图片过于复杂，扫描失败");
+                        console.log( err);
                     }
                 }).catch(function(err) {
                     console.log( err);
